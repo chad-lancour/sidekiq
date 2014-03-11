@@ -3,6 +3,8 @@
   <head>
     <title><%= Sidekiq::NAME %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link href="/<%= ::HOST_CONTEXT %>/fav_sk_<%= ::HOST_ENV %>.ico" rel="shortcut icon"/>
+    <link href="/<%= ::HOST_CONTEXT %>/fav_sk_<%= ::HOST_ENV %>.ico" rel="icon" sizes="16x16 32x32"/>
     <link href="<%= root_path %>stylesheets/bootstrap.css" media="screen" rel="stylesheet" type="text/css" />
     <link href="<%= root_path %>stylesheets/application.css" media="screen" rel="stylesheet" type="text/css" />
     <script type="text/javascript" src="<%= root_path %>javascripts/application.js"></script>
