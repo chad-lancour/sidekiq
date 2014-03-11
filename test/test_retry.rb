@@ -129,7 +129,7 @@ class TestRetry < Sidekiq::Test
 
     it 'handles a recurring failed message' do
       @redis.expect :zadd, 1, ['retry', String, String]
-      now = Time.now.utc
+      now = Time.now.to_f
       msg = {"class"=>"Bob", "args"=>[1, 2, "foo"], 'retry' => true, "queue"=>"default", "error_message"=>"kerblammo!", "error_class"=>"RuntimeError", "failed_at"=>now, "retry_count"=>10}
       handler = Sidekiq::Middleware::Server::RetryJobs.new
       assert_raises RuntimeError do
@@ -147,7 +147,7 @@ class TestRetry < Sidekiq::Test
 
     it 'handles a recurring failed message before reaching user-specifed max' do
       @redis.expect :zadd, 1, ['retry', String, String]
-      now = Time.now.utc
+      now = Time.now.to_f
       msg = {"class"=>"Bob", "args"=>[1, 2, "foo"], 'retry' => 10, "queue"=>"default", "error_message"=>"kerblammo!", "error_class"=>"RuntimeError", "failed_at"=>now, "retry_count"=>8}
       handler = Sidekiq::Middleware::Server::RetryJobs.new
       assert_raises RuntimeError do
@@ -164,7 +164,7 @@ class TestRetry < Sidekiq::Test
     end
 
     it 'throws away old messages after too many retries (using the default)' do
-      now = Time.now.utc
+      now = Time.now.to_f
       msg = {"class"=>"Bob", "args"=>[1, 2, "foo"], "queue"=>"default", "error_message"=>"kerblammo!", "error_class"=>"RuntimeError", "failed_at"=>now, "retry"=>true, "retry_count"=>25}
       @redis.expect :zadd, 1, [ 'retry', String, String ]
       handler = Sidekiq::Middleware::Server::RetryJobs.new
@@ -178,7 +178,7 @@ class TestRetry < Sidekiq::Test
     end
 
     it 'throws away old messages after too many retries (using user-specified max)' do
-      now = Time.now.utc
+      now = Time.now.to_f
       msg = {"class"=>"Bob", "args"=>[1, 2, "foo"], "queue"=>"default", "error_message"=>"kerblammo!", "error_class"=>"RuntimeError", "failed_at"=>now, "retry"=>3, "retry_count"=>3}
       @redis.expect :zadd, 1, [ 'retry', String, String ]
       handler = Sidekiq::Middleware::Server::RetryJobs.new
@@ -194,7 +194,7 @@ class TestRetry < Sidekiq::Test
     describe "retry exhaustion" do
       let(:handler){ Sidekiq::Middleware::Server::RetryJobs.new }
       let(:worker) { Minitest::Mock.new }
-      let(:msg){ {"class"=>"Bob", "args"=>[1, 2, "foo"], "queue"=>"default", "error_message"=>"kerblammo!", "error_class"=>"RuntimeError", "failed_at"=>Time.now.utc, "retry"=>3, "retry_count"=>3} }
+      let(:msg){ {"class"=>"Bob", "args"=>[1, 2, "foo"], "queue"=>"default", "error_message"=>"kerblammo!", "error_class"=>"RuntimeError", "failed_at"=>Time.now.to_f, "retry"=>3, "retry_count"=>3} }
 
       describe "worker method" do
         let(:worker) do
@@ -210,7 +210,7 @@ class TestRetry < Sidekiq::Test
         end
 
         it 'calls worker.retries_exhausted after too many retries' do
-          assert_equal [1,2, "foo", "retried_method"], handler.send(:retries_exhausted, worker.new, msg)
+          assert_equal [1,2, "foo", "retried_method"], handler.__send__(:retries_exhausted, worker.new, msg)
         end
       end
 
@@ -226,7 +226,7 @@ class TestRetry < Sidekiq::Test
         end
 
         it 'calls worker sidekiq_retries_exhausted_block after too many retries' do
-          new_msg      = handler.send(:retries_exhausted, worker.new, msg)
+          new_msg      = handler.__send__(:retries_exhausted, worker.new, msg)
           expected_msg = msg.merge('called_by_callback' => true)
 
           assert_equal expected_msg, new_msg, "sidekiq_retries_exhausted block not called"
@@ -288,15 +288,15 @@ class TestRetry < Sidekiq::Test
       let(:handler) { Sidekiq::Middleware::Server::RetryJobs.new }
 
       it "retries with a default delay" do
-        refute_equal 4, handler.send(:delay_for, worker, 2)
+        refute_equal 4, handler.__send__(:delay_for, worker, 2)
       end
 
       it "retries with a custom delay" do
-        assert_equal 4, handler.send(:delay_for, custom_worker, 2)
+        assert_equal 4, handler.__send__(:delay_for, custom_worker, 2)
       end
 
       it "falls back to the default retry on exception" do
-        refute_equal 4, handler.send(:delay_for, error_worker, 2)
+        refute_equal 4, handler.__send__(:delay_for, error_worker, 2)
         assert_match(/Failure scheduling retry using the defined `sidekiq_retry_in`/,
                      File.read(@tmp_log_path), 'Log entry missing for sidekiq_retry_in')
       end

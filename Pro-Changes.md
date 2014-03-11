@@ -3,6 +3,25 @@ Sidekiq Pro Changelog
 
 Please see [http://sidekiq.org/pro](http://sidekiq.org/pro) for more details and how to buy.
 
+1.4.3
+-----------
+
+- Reverse sorting of Batches in Web UI [#1098]
+- Refactoring for Sidekiq 3.0, Pro now requires Sidekiq 2.17.5
+
+1.4.2
+-----------
+
+- Tolerate expired Batches in the web UI.
+- Fix 100% CPU usage when using weighted queues and reliable fetch.
+
+1.4.1
+-----------
+
+- Add batch progress bar to batch detail page. [#1398]
+- Fix race condition in initializing Lua scripts
+
+
 1.4.0
 -----------
 

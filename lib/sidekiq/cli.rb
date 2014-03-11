@@ -46,8 +46,12 @@ module Sidekiq
       self_read, self_write = IO.pipe
 
       %w(INT TERM USR1 USR2 TTIN).each do |sig|
-        trap sig do
-          self_write.puts(sig)
+        begin
+          trap sig do
+            self_write.puts(sig)
+          end
+        rescue ArgumentError
+          puts "Signal #{sig} not supported"
         end
       end
 
@@ -108,7 +112,7 @@ module Sidekiq
       when 'USR2'
         if Sidekiq.options[:logfile]
           Sidekiq.logger.info "Received USR2, reopening log file"
-          initialize_logger
+          Sidekiq::Logging.reopen_logs
         end
       when 'TTIN'
         Thread.list.each do |thread|
@@ -174,13 +178,15 @@ module Sidekiq
     end
 
     def setup_options(args)
-      cli = parse_options(args)
-      set_environment cli[:environment]
+      opts = parse_options(args)
+      set_environment opts[:environment]
 
-      cfile = cli[:config_file]
+      cfile = opts[:config_file]
+      opts = parse_config(cfile).merge(opts) if cfile
 
-      config = (cfile ? parse_config(cfile) : {})
-      options.merge!(config.merge(cli))
+      opts[:strict] = true if opts[:strict].nil?
+
+      options.merge!(opts)
     end
 
     def options
@@ -256,9 +262,9 @@ module Sidekiq
           opts[:profile] = arg
         end
 
-        o.on "-q", "--queue QUEUE[,WEIGHT]...", "Queues to process with optional weights" do |arg|
-          queues_and_weights = arg.scan(/([\w\.-]+),?(\d*)/)
-          parse_queues opts, queues_and_weights
+        o.on "-q", "--queue QUEUE[,WEIGHT]", "Queues to process with optional weights" do |arg|
+          queue, weight = arg.split(",")
+          parse_queue opts, queue, weight
         end
 
         o.on '-r', '--require [PATH|DIR]', "Location of Rails application with workers or file to require" do |arg|
@@ -297,6 +303,7 @@ module Sidekiq
         die 1
       end
       @parser.parse!(argv)
+      opts[:config_file] ||= 'config/sidekiq.yml' if File.exist?('config/sidekiq.yml')
       opts
     end
 
@@ -310,6 +317,9 @@ module Sidekiq
       if path = options[:pidfile]
         File.open(path, 'w') do |f|
           f.puts Process.pid
+        end
+        at_exit do
+          FileUtils.rm_f path
         end
       end
     end
@@ -334,14 +344,14 @@ module Sidekiq
     end
 
     def parse_queues(opts, queues_and_weights)
-      queues_and_weights.each {|queue_and_weight| parse_queue(opts, *queue_and_weight)}
-      opts[:strict] = queues_and_weights.all? {|_, weight| weight.to_s.empty? }
+      queues_and_weights.each { |queue_and_weight| parse_queue(opts, *queue_and_weight) }
     end
 
     def parse_queue(opts, q, weight=nil)
       [weight.to_i, 1].max.times do
        (opts[:queues] ||= []) << q
       end
+      opts[:strict] = false if weight.to_i > 0
     end
   end
 end

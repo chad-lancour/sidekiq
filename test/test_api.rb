@@ -33,12 +33,41 @@ class TestApi < Sidekiq::Test
     end
 
     describe "reset" do
-      it 'can reset stats' do
+      before do
         Sidekiq.redis do |conn|
           conn.set('stat:processed', 5)
           conn.set('stat:failed', 10)
-          Sidekiq::Stats.new.reset
+        end
+      end
+
+      it 'will reset all stats by default' do
+        Sidekiq::Stats.new.reset
+        Sidekiq.redis do |conn|
           assert_equal '0', conn.get('stat:processed')
+          assert_equal '0', conn.get('stat:failed')
+        end
+      end
+
+      it 'can reset individual stats' do
+        Sidekiq::Stats.new.reset('failed')
+        Sidekiq.redis do |conn|
+          assert_equal '5', conn.get('stat:processed')
+          assert_equal '0', conn.get('stat:failed')
+        end
+      end
+
+      it 'can accept anything that responds to #to_s' do
+        Sidekiq::Stats.new.reset(:failed)
+        Sidekiq.redis do |conn|
+          assert_equal '5', conn.get('stat:processed')
+          assert_equal '0', conn.get('stat:failed')
+        end
+      end
+
+      it 'ignores anything other than "failed" or "processed"' do
+        Sidekiq::Stats.new.reset((1..10).to_a, ['failed'])
+        Sidekiq.redis do |conn|
+          assert_equal '5', conn.get('stat:processed')
           assert_equal '0', conn.get('stat:failed')
         end
       end
@@ -333,6 +362,22 @@ class TestApi < Sidekiq::Test
         assert_equal 'default', y['queue']
         assert_equal Time.now.year, DateTime.parse(z).year
       end
+
+      s = '12346'
+      data = Sidekiq.dump_json({ 'payload' => {}, 'queue' => 'default', 'run_at' => (Time.now.to_i - 2*60*60) })
+      Sidekiq.redis do |c|
+        c.multi do
+          c.sadd('workers', s)
+          c.set("worker:#{s}", data)
+          c.set("worker:#{s}:started", Time.now.to_s)
+          c.sadd('workers', '123457')
+        end
+      end
+
+      assert_equal 3, w.size
+      count = w.prune
+      assert_equal 1, w.size
+      assert_equal 2, count
     end
 
     it 'can reschedule jobs' do
@@ -352,7 +397,7 @@ class TestApi < Sidekiq::Test
     end
 
     def add_retry(jid = 'bob', at = Time.now.to_f)
-      payload = Sidekiq.dump_json('class' => 'ApiWorker', 'args' => [1, 'mike'], 'queue' => 'default', 'jid' => jid, 'retry_count' => 2, 'failed_at' => Time.now.utc)
+      payload = Sidekiq.dump_json('class' => 'ApiWorker', 'args' => [1, 'mike'], 'queue' => 'default', 'jid' => jid, 'retry_count' => 2, 'failed_at' => Time.now.to_f)
       Sidekiq.redis do |conn|
         conn.zadd('retry', at.to_s, payload)
       end

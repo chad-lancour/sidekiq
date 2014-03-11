@@ -1,3 +1,50 @@
+2.17.7
+-----------
+
+- Auto-prune jobs older than one hour from the Workers page [#1508]
+- Add Sidekiq::Workers#prune which can perform the auto-pruning.
+- Fix issue where a job could be lost when an exception occurs updating
+  Redis stats before the job executes [#1511]
+
+2.17.6
+-----------
+
+- Fix capistrano integration due to missing pidfile. [#1490]
+
+2.17.5
+-----------
+
+- Automatically use the config file found at `config/sidekiq.yml`, if not passed `-C`. [#1481]
+- Store 'retried\_at' and 'failed\_at' timestamps as Floats, not Strings. [#1473]
+- A `USR2` signal will now reopen _all_ logs, using IO#reopen. Thus, instead of creating a new Logger object, 
+  Sidekiq will now just update the existing Logger's file descriptor [#1163].
+- Remove pidfile when shutting down if started with `-P` [#1470]
+
+2.17.4
+-----------
+
+- Fix JID support in inline testing, #1454
+- Polish worker arguments display in UI, #1453
+- Marshal arguments fully to avoid worker mutation, #1452
+- Support reverse paging sorted sets, #1098
+
+
+2.17.3
+-----------
+
+- Synchronously terminates the poller and fetcher to fix a race condition in bulk requeue during shutdown [#1406]
+
+2.17.2
+-----------
+
+- Fix bug where strictly prioritized queues might be processed out of
+  order [#1408]. A side effect of this change is that it breaks a queue
+  declaration syntax that worked, although only because of a bug—it was
+  never intended to work and never supported. If you were declaring your
+  queues as a  comma-separated list, e.g. `sidekiq -q critical,default,low`,
+  you must now use the `-q` flag before each queue, e.g.
+  `sidekiq -q critical -q default -q low`.
+
 2.17.1
 -----------
 
